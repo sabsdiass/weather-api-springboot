@@ -1,54 +1,53 @@
 package com.daw.weather_api.geoapify.application;
 
 import com.daw.weather_api.geoapify.domain.response.GeoApifyResponse;
+import com.daw.weather_api.geoapify.domain.services.GeoApifyService;
 import com.daw.weather_api.openweather.domain.response.WeatherResponse;
 import com.daw.weather_api.openweather.domain.services.OpenWeatherService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.text.Normalizer;
-import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
 public class WeatherInfoApp {
 
+    private final GeoApifyService geoApifyService;
     private final OpenWeatherService openWeatherService;
 
     public WeatherResponse getWeatherByCity(String city) throws IOException {
-        GeoApifyResponse coords = resolveCoordinates(city);
-        return openWeatherService.getCurrentWeather(coords.getLat(), coords.getLon());
+        GeoApifyResponse coords = geoApifyService.geocoding(city);
+
+        if (coords == null) {
+            coords = fallbackCoordinates(city);
+        }
+
+        return openWeatherService.getCurrentWeather(
+                coords.getLat(),
+                coords.getLon()
+        );
     }
 
-    private GeoApifyResponse resolveCoordinates(String city) {
-        String normalized = normalize(city);
+    private GeoApifyResponse fallbackCoordinates(String city) {
+        String normalized = city == null ? "" : city.toLowerCase();
 
-        if (normalized.contains("sao paulo")) {
-            return geoResponse(-23.55052, -46.63331);
-        }
-
-        if (normalized.contains("rio de janeiro")) {
-            return geoResponse(-22.90685, -43.17290);
-        }
-
-        if (normalized.contains("salvador")) {
-            return geoResponse(-12.97775, -38.50163);
-        }
-
-        throw new RuntimeException("Cidade no soportada: " + city);
-    }
-
-    private GeoApifyResponse geoResponse(double lat, double lon) {
         GeoApifyResponse response = new GeoApifyResponse();
-        response.setLat(lat);
-        response.setLon(lon);
-        return response;
-    }
 
-    private String normalize(String value) {
-        String lower = value.toLowerCase(Locale.ROOT);
-        String normalized = Normalizer.normalize(lower, Normalizer.Form.NFD);
-        return normalized.replaceAll("\\p{M}", ""); // remove acentos
+        if (normalized.contains("são paulo") || normalized.contains("sao paulo")) {
+            response.setLat(-23.5505);
+            response.setLon(-46.6333);
+        } else if (normalized.contains("rio de janeiro")) {
+            response.setLat(-22.9068);
+            response.setLon(-43.1729);
+        } else if (normalized.contains("salvador")) {
+            response.setLat(-12.9777);
+            response.setLon(-38.5016);
+        } else {
+            response.setLat(-23.5505);
+            response.setLon(-46.6333);
+        }
+
+        return response;
     }
 }

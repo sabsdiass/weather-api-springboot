@@ -9,8 +9,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
-import java.text.Normalizer;
-
 @Service
 public class GeoApifyService {
 
@@ -25,22 +23,23 @@ public class GeoApifyService {
         this.objectMapper = objectMapper;
     }
 
-    private String normalizeCity(String city) {
+    private String extractCityName(String city) {
+        if (city == null) {
+            return "";
+        }
         String[] parts = city.split(",");
-        String cityName = parts[0].trim();
-
-        String normalized = Normalizer.normalize(cityName, Normalizer.Form.NFD);
-        return normalized.replaceAll("\\p{M}", "");
+        return parts[0].trim(); // "São Paulo, SP" -> "São Paulo"
     }
 
     public GeoApifyResponse geocoding(String city) {
-        String sanitizedCity = normalizeCity(city);
+        String cityName = extractCityName(city);
 
         String url = UriComponentsBuilder
                 .fromHttpUrl("https://api.geoapify.com/v1/geocode/search")
-                .queryParam("text", sanitizedCity)
-                .queryParam("type", "city")
+                .queryParam("text", cityName)          // ex: "São Paulo"
+                .queryParam("type", "city")            // só cidades
                 .queryParam("filter", "countrycode:br")
+                .queryParam("lang", "pt")
                 .queryParam("limit", 1)
                 .queryParam("apiKey", apiKey)
                 .toUriString();
@@ -51,7 +50,7 @@ public class GeoApifyService {
             JsonNode features = root.path("features");
 
             if (!features.isArray() || features.isEmpty()) {
-                return null;
+                return null; // não encontrou nada
             }
 
             JsonNode properties = features.get(0).path("properties");
@@ -61,11 +60,10 @@ public class GeoApifyService {
             GeoApifyResponse response = new GeoApifyResponse();
             response.setLat(lat);
             response.setLon(lon);
-
             return response;
 
         } catch (Exception e) {
-            return null;
+            return null; // em caso de erro na API, devolve null e deixamos o app decidir
         }
     }
 }
