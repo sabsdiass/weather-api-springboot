@@ -1,4 +1,4 @@
-package com.daw.weather_api.domain.response;
+package com.daw.weather_api.openweather.domain.response;
 
 import lombok.Data;
 
